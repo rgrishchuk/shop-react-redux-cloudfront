@@ -25,7 +25,7 @@ export default function Products() {
           >
             <CardMedia
               sx={{ pt: "56.25%" }}
-              image={`images/book${product.id}.jpg`}
+              image={`images/book${product.image}.jpg`}
               style={{ backgroundSize: 'contain' }}
               title="Image title"
             />
