@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Fragment, useState } from "react";
 import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
@@ -12,6 +12,7 @@ import Box from "@mui/material/Box";
 import { useCart, useInvalidateCart } from "~/queries/cart";
 import AddressForm from "~/components/pages/PageCart/components/AddressForm";
 import { useSubmitOrder } from "~/queries/orders";
+import { useAvailableProducts } from "~/queries/products";
 
 enum CartStep {
   ReviewCart,
@@ -43,6 +44,8 @@ const Success = () => (
 const steps = ["Review your cart", "Shipping address", "Review your order"];
 
 export default function PageCart() {
+  const { data: products = [], isLoading } = useAvailableProducts();
+
   const { data = [] } = useCart();
   const { mutate: submitOrder } = useSubmitOrder();
   const invalidateCart = useInvalidateCart();
@@ -52,21 +55,38 @@ export default function PageCart() {
   const [address, setAddress] = useState<Address>(initialAddressValues);
 
   const isCartEmpty = data.length === 0;
+  const cartItems = data.map(({ product, count }) => {
+    const productItem: any = products.find(({ id }) => id === product.id);
+    return {
+      product: {
+        ...product,
+        title: productItem?.title,
+        image: productItem?.image,
+        price: productItem?.price,
+        description: productItem?.description,
+      },
+      count,
+    };
+  });
 
   const handleNext = () => {
     if (activeStep !== CartStep.ReviewOrder) {
       setActiveStep((step) => step + 1);
       return;
     }
+    const totalPrice: number = cartItems.reduce((total, item) => {
+      return item.count * item.product.price + total;
+    }, 0);
     const values = {
-      items: data.map((i) => ({
+      items: cartItems.map((i) => ({
         productId: i.product.id,
         count: i.count,
       })),
       address,
+      total: totalPrice,
     };
 
-    submitOrder(values as Omit<Order, "id">, {
+    submitOrder(values as Omit<Order, "id"> & { total: number }, {
       onSuccess: () => {
         setActiveStep(activeStep + 1);
         invalidateCart();
@@ -85,53 +105,61 @@ export default function PageCart() {
 
   return (
     <PaperLayout>
-      <Typography component="h1" variant="h4" align="center">
-        Checkout
-      </Typography>
-      <Stepper
-        activeStep={activeStep}
-        sx={{ padding: (theme) => theme.spacing(3, 0, 5) }}
-      >
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
-      {isCartEmpty && <CartIsEmpty />}
-      {!isCartEmpty && activeStep === CartStep.ReviewCart && (
-        <ReviewCart items={data} />
-      )}
-      {activeStep === CartStep.Address && (
-        <AddressForm
-          initialValues={address}
-          onBack={handleBack}
-          onSubmit={handleAddressSubmit}
-        />
-      )}
-      {activeStep === CartStep.ReviewOrder && (
-        <ReviewOrder address={address} items={data} />
-      )}
-      {activeStep === CartStep.Success && <Success />}
-      {!isCartEmpty &&
-        activeStep !== CartStep.Address &&
-        activeStep !== CartStep.Success && (
-          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-            {activeStep !== CartStep.ReviewCart && (
-              <Button onClick={handleBack} sx={{ mt: 3, ml: 1 }}>
-                Back
-              </Button>
+      {isLoading ? (
+        <Typography component="h1" variant="h4" align="center">
+          Loading
+        </Typography>
+      ) : (
+        <Fragment>
+          <Typography component="h1" variant="h4" align="center">
+            Checkout
+          </Typography>
+          <Stepper
+            activeStep={activeStep}
+            sx={{ padding: (theme) => theme.spacing(3, 0, 5) }}
+          >
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          {isCartEmpty && <CartIsEmpty />}
+          {!isCartEmpty && activeStep === CartStep.ReviewCart && (
+            <ReviewCart items={cartItems} />
+          )}
+          {activeStep === CartStep.Address && (
+            <AddressForm
+              initialValues={address}
+              onBack={handleBack}
+              onSubmit={handleAddressSubmit}
+            />
+          )}
+          {activeStep === CartStep.ReviewOrder && (
+            <ReviewOrder address={address} items={cartItems} />
+          )}
+          {activeStep === CartStep.Success && <Success />}
+          {!isCartEmpty &&
+            activeStep !== CartStep.Address &&
+            activeStep !== CartStep.Success && (
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                {activeStep !== CartStep.ReviewCart && (
+                  <Button onClick={handleBack} sx={{ mt: 3, ml: 1 }}>
+                    Back
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  sx={{ mt: 3, ml: 1 }}
+                  onClick={handleNext}
+                >
+                  {activeStep === steps.length - 1 ? "Place order" : "Next"}
+                </Button>
+              </Box>
             )}
-            <Button
-              variant="contained"
-              color="primary"
-              sx={{ mt: 3, ml: 1 }}
-              onClick={handleNext}
-            >
-              {activeStep === steps.length - 1 ? "Place order" : "Next"}
-            </Button>
-          </Box>
-        )}
+        </Fragment>
+      )}
     </PaperLayout>
   );
 }
