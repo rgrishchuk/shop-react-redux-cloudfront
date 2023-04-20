@@ -12,6 +12,7 @@ import {
   useRemoveProductCache,
   useUpsertAvailableProduct,
 } from "~/queries/products";
+import { v4 } from "uuid";
 
 const initialValues: AvailableProduct = AvailableProductSchema.cast({});
 
@@ -29,7 +30,7 @@ export default function PageProductForm() {
           ...formattedValues,
           id,
         }
-      : formattedValues;
+      : { ...formattedValues, id: v4() };
     return upsertAvailableProduct(productToSave, {
       onSuccess: () => {
         invalidateAvailableProducts();
