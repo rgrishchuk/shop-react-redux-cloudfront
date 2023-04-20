@@ -61,6 +61,7 @@ export default function ProductsTable() {
                       });
                     }
                   }}
+                  disabled
                 >
                   Delete
                 </Button>
